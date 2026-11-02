@@ -52,8 +52,6 @@ LevelData
 通过以下命令执行构建：
 
 ~~~powershell
-node .\map-model.test.js
-node .\preview.test.js
 powershell -ExecutionPolicy Bypass -File .\build-exe.ps1
 ~~~
 
