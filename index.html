@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="data:,">
+<title>明日方舟地图编辑器</title><link rel="stylesheet" href="styles.css"></head><body>
+  <main id="mapEditorDialog" class="map-editor-dialog">
+    <div class="map-editor-window">
+      <header class="map-editor-header">
+        <div>
+          <p class="section-kicker">VISUAL MAP & ROUTE AUTHORING</p>
+          <h2>明日方舟地图编辑器</h2>
+          <p class="muted">独立地图编辑 · 空白格导出为 <code>tile_forbidden</code>；支持 map_jsons 导入、波次、Branch 和完整动作字段。</p>
+        </div>
+        <div class="editor-button-row"><button id="newMap">新建</button><button id="openMap">打开地图 JSON</button><button id="saveMap" class="primary-button">保存 JSON</button></div>
+      </header>
+
+      <div class="map-editor-layout">
+        <aside class="map-editor-controls">
+          <details open>
+            <summary>地图尺寸与绘制</summary>
+            <div class="detail-body editor-section">
+              <div class="field-grid compact-grid">
+                <label class="field"><span>宽度</span><input id="editorMapWidth" type="number" min="1" max="256" step="1" value="10"></label>
+                <label class="field"><span>高度</span><input id="editorMapHeight" type="number" min="1" max="256" step="1" value="6"></label>
+              </div>
+              <div class="editor-button-row">
+                <button id="editorResizeMapButton" type="button">应用尺寸</button>
+                <button id="editorClearMapButton" type="button">清空地图</button>
+                <button id="editorFillMapButton" type="button">全部填充当前地块</button>
+              </div>
+              <label class="field"><span>tileKey</span>
+                <input type="text" id="editorTileKey" list="tileKeys" value="tile_road"><datalist id="tileKeys">
+                  <option value="tile_road">tile_road</option><option value="tile_floor">tile_floor</option>
+                  <option value="tile_wall">tile_wall</option><option value="tile_forbidden">tile_forbidden</option>
+                  <option value="tile_start">tile_start</option><option value="tile_end">tile_end</option>
+                  <option value="tile_telin">tile_telin</option><option value="tile_telout">tile_telout</option>
+                </datalist>
+              </label>
+              <div class="field-grid compact-grid">
+                <label class="field"><span>heightType</span><select id="editorHeightType"><option value="LOWLAND">LOWLAND</option><option value="HIGHLAND">HIGHLAND</option></select></label>
+                <label class="field"><span>buildableType</span><select id="editorBuildableType"><option value="NONE">NONE</option><option value="RANGED">RANGED</option><option value="MELEE">MELEE</option></select></label>
+                <label class="field"><span>passableMask</span><select id="editorPassableMask"><option value="ALL">ALL</option><option value="FLY_ONLY">FLY_ONLY</option></select></label>
+                <label class="field"><span>playerSideMask</span><select id="editorPlayerSideMask"><option value="ALL">ALL</option></select></label>
+              </div>
+              <div class="editor-button-row">
+                <button id="editorPaintModeButton" class="active" type="button">绘制地块</button>
+                <button id="editorEraseModeButton" type="button">留空</button>
+              </div>
+            </div>
+          </details>
+
+          <details open>
+            <summary>路线与检查点</summary>
+            <div class="detail-body editor-section">
+              <div class="editor-button-row">
+                <label class="field grow"><span>当前路线</span><select id="editorRouteSelect"></select></label>
+                <button id="editorAddRouteButton" type="button">新增</button>
+                <button id="editorDeleteRouteButton" type="button">删除</button>
+              </div>
+              <div class="field-grid compact-grid">
+                <label class="field"><span>运动方式</span><select id="editorRouteMotion"><option value="WALK">WALK</option><option value="FLY">FLY</option></select></label>
+                <label class="check-field editor-checkbox"><input id="editorAllowDiagonal" type="checkbox" checked><span>allowDiagonalMove</span></label>
+              </div>
+              <label class="field"><span>路线库</span><select id="routeLibrary"><option value="routes">routes（主路线）</option><option value="extraRoutes">extraRoutes（Branch 默认路线）</option></select></label><div id="routeFields"></div><div class="editor-tool-grid">
+                <button type="button" data-editor-tool="START">设置入侵坐标</button>
+                <button type="button" data-editor-tool="END">设置目标坐标</button>
+                <button type="button" data-editor-tool="MOVE">添加 MOVE 路径点</button>
+              </div>
+              <div class="editor-button-row">
+                <label class="field grow"><span>停驻秒数</span><input id="editorWaitSeconds" type="number" min="0" step="0.1" value="1"></label>
+                <button id="editorAddWaitButton" type="button">添加 WAIT_FOR_SECONDS</button>
+              </div>
+              <div id="checkpointFields"></div><ol id="editorCheckpointList" class="editor-checkpoint-list"></ol>
+            </div>
+          </details>
+
+<div id="documentControls"></div>
+          <div class="editor-export-actions">
+            <label class="field"><span>导出文件名</span><input id="editorExportName" type="text" value="level_custom.json"></label>
+            <button id="editorExportButton" type="button">导出完整地图 JSON</button>
+          </div>
+        </aside>
+
+        <section class="map-editor-visual">
+          <div class="canvas-toolbar">
+            <strong>地图与路线</strong>
+            <span id="editorStatus" class="muted">选择地块并在画布上绘制。</span>
+          </div>
+          <div class="canvas-wrap map-editor-canvas-wrap">
+            <div class="map-view-controls" aria-label="地图编辑器视图控制">
+              <button id="editorZoomOutButton" type="button" title="缩小地图">−</button>
+              <button id="editorFitButton" type="button" title="恢复适应窗口">适应</button>
+              <button id="editorZoomInButton" type="button" title="放大地图">+</button>
+              <span>滚轮缩放 · 中键或 Shift+拖动平移</span>
+            </div>
+            <canvas id="mapEditorCanvas" width="1100" height="720" aria-label="地图与路线编辑画布"></canvas>
+            <div id="mapEditorTooltip" class="tile-tooltip" hidden></div>
+          </div>
+          <div class="tile-legend-block editor-tile-legend" aria-label="地图编辑器程序绘制地块图例">
+            <p class="tile-legend-title">程序绘制地块</p>
+            <div class="tile-legend-grid">
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-end"></i><span><strong>保护点</strong><small>tile_end</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-start"></i><span><strong>入侵点</strong><small>tile_start</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-hole"></i><span><strong>地穴</strong><small>tile_hole</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-fence-bound"></i><span><strong>围墙</strong><small>tile_fence_bound</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-fence"></i><span><strong>围栏</strong><small>tile_fence</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-road"></i><span><strong>可部署地面</strong><small>tile_road</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-floor"></i><span><strong>不可部署地面</strong><small>tile_floor</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-wall"></i><span><strong>高台</strong><small>tile_wall</small></span></span>
+              <span class="tile-legend-item tile-legend-item-wide"><i class="tile-legend-icon tile-forbidden"></i><span><strong>（默认）贴图地块/禁止部署高台</strong><small>tile_forbidden</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-telin"></i><span><strong>传送门入口</strong><small>tile_telin</small></span></span>
+              <span class="tile-legend-item"><i class="tile-legend-icon tile-telout"></i><span><strong>传送门出口</strong><small>tile_telout</small></span></span>
+            </div>
+          </div>
+          <div class="legend editor-legend">
+            <span><i class="swatch editor-route-start"></i>路线起点</span><span><i class="swatch editor-route-end"></i>路线终点</span>
+            <span><i class="swatch editor-route-move"></i>位置检查点</span><span>路线按检查点顺序连线</span>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+<input id="mapFile" type="file" accept=".json,application/json" hidden>
+<dialog id="jsonDialog"><h2 id="jsonTitle"></h2><textarea id="jsonText" spellcheck="false"></textarea><p id="jsonError"></p><button id="applyJson">应用</button><button id="cancelJson">取消</button></dialog>
+<script src="schema.js"></script>
+<script src="map-model.js"></script>
+<script src="tile-renderer.js"></script>
+<script src="map-editor.js"></script>
+<script src="editor-ui.js"></script>
+</body></html>

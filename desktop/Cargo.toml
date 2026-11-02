@@ -1,0 +1,16 @@
+[package]
+name = "arknights-map-editor"
+version = "2.0.0"
+edition = "2021"
+description = "Arknights standalone map editor"
+
+[dependencies]
+serde_json = "1.0"
+winit = "0.30.12"
+wry = "0.55.1"
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 1
+panic = "abort"
