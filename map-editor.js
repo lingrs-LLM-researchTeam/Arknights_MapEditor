@@ -35,6 +35,7 @@
     cells: [],
     paintMode: "PAINT",
     routeTool: null,
+    selectedTile: null,
     routes: [],
     routeIndex: 0,
     view: null,
@@ -71,6 +72,7 @@
   function resetCells(width, height, preserve) {
     const previous = state.cells;
     const oldWidth = state.width, oldHeight = state.height;
+    if (state.selectedTile && (state.selectedTile.x >= width || state.selectedTile.y >= height)) state.selectedTile = null;
     state.width = width;
     state.height = height;
     state.mapView = { zoom: 1, panX: 0, panY: 0 };
@@ -111,10 +113,17 @@
     e.paintMode.classList.toggle("active", mode === "PAINT");
     e.eraseMode.classList.toggle("active", mode === "ERASE");
     document.querySelectorAll("[data-editor-tool]").forEach(button => button.classList.remove("active"));
+    $("inspectTileTool").setAttribute("aria-pressed", String(mode === "INSPECT"));
+    if (mode === "INSPECT") {
+      e.status.textContent = "点击地块查看配置。";
+      return;
+    }
     e.status.textContent = mode === "ERASE" ? "在画布上拖动可将地块恢复为空白。" : `正在绘制 ${e.tileKey.value}。`;
   }
 
   function setRouteTool(tool) {
+    state.paintMode = "PAINT";
+    $("inspectTileTool").setAttribute("aria-pressed", "false");
     state.routeTool = tool;
     document.querySelectorAll("[data-editor-tool]").forEach(button => button.classList.toggle("active", button.dataset.editorTool === tool));
     e.paintMode.classList.remove("active");
@@ -163,7 +172,7 @@
   function resizeCanvas() {
     const rect = e.canvas.parentElement.getBoundingClientRect();
     const cssWidth = Math.max(1, rect.width || 1100);
-    const cssHeight = Math.max(180, rect.height || Math.min(640, window.innerHeight * 0.62));
+    const cssHeight = Math.max(1, rect.height || Math.min(640, window.innerHeight * 0.62));
     const dpr = window.devicePixelRatio || 1;
     if (e.canvas.width !== Math.round(cssWidth * dpr) || e.canvas.height !== Math.round(cssHeight * dpr)) {
       e.canvas.width = Math.round(cssWidth * dpr);
@@ -172,7 +181,7 @@
       e.canvas.style.height = `${cssHeight}px`;
     }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const pad = 56;
+    const pad = Math.min(56, cssWidth / 6, cssHeight / 6);
     const baseTileSize = Math.min((cssWidth - pad * 2) / state.width, (cssHeight - pad * 2) / state.height);
     const tileSize = baseTileSize * state.mapView.zoom;
     const mapWidth = tileSize * state.width, mapHeight = tileSize * state.height;
@@ -287,13 +296,29 @@
     });
   }
 
+  function selectTile(x, y) {
+    state.selectedTile = {x, y};
+    draw();
+  }
+
   function draw() {
+    if (!e.canvas.getClientRects().length) return;
     const view = resizeCanvas();
     ctx.clearRect(0, 0, view.cssWidth, view.cssHeight);
     ctx.fillStyle = "#10161c";
     ctx.fillRect(0, 0, view.cssWidth, view.cssHeight);
     drawGrid();
     drawRoutes();
+    if (state.selectedTile) {
+      const {x, y} = state.selectedTile;
+      const left = view.left + x * view.tileSize;
+      const top = view.top + (state.height - 1 - y) * view.tileSize;
+      ctx.save();
+      ctx.strokeStyle = "#ffcf70";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(left + 1, top + 1, Math.max(1, view.tileSize - 2), Math.max(1, view.tileSize - 2));
+      ctx.restore();
+    }
   }
 
   function canvasTile(event) {
@@ -339,6 +364,7 @@
 
   function loadMap(raw) {
     Model.assertMap(raw);
+    state.selectedTile = null;
     state.document = clone(raw);
     state.routes = state.document[$("routeLibrary").value || "routes"] || [];
     state.width = raw.mapData.map[0].length; state.height = raw.mapData.map.length;
@@ -350,6 +376,10 @@
   }
 
   e.tileKey.addEventListener("change", () => { setTileDefaults(); setPaintMode("PAINT"); });
+  $("inspectTileTool").addEventListener("click", () => {
+    setPaintMode("INSPECT");
+    window.dispatchEvent(new Event("editor-inspect-tiles"));
+  });
   e.paintMode.addEventListener("click", () => setPaintMode("PAINT"));
   e.eraseMode.addEventListener("click", () => setPaintMode("ERASE"));
   e.resize.addEventListener("click", () => resetCells(integer(e.width.value, 1, 256, state.width), integer(e.height.value, 1, 256, state.height), true));
@@ -405,6 +435,14 @@
   e.canvas.addEventListener("pointerdown", event => {
     if (event.altKey) { const p=canvasTile(event); if(p) {state.brush=clone(state.cells[p[1]][p[0]] || Model.tile()); e.tileKey.value=state.brush.tileKey; e.heightType.value=state.brush.heightType; e.buildableType.value=state.brush.buildableType; e.passableMask.value=state.brush.passableMask; e.playerSideMask.value=state.brush.playerSideMask; e.status.textContent="已拾取地块完整属性";} return; }
     if (beginMapPan(event)) return;
+    if (state.paintMode === "INSPECT") {
+      const cell = canvasTile(event);
+      if (cell && event.button === 0) {
+        selectTile(cell[0], cell[1]);
+        window.dispatchEvent(new Event("editor-tile-picked"));
+      }
+      return;
+    }
     state.dragging = true;
     e.canvas.setPointerCapture(event.pointerId);
     applyCanvasAction(event);
@@ -436,10 +474,10 @@
   e.zoomIn.addEventListener("click", () => setMapZoom(state.mapView.zoom * 1.2));
   e.fit.addEventListener("click", () => resetMapView());
 
-  window.addEventListener("resize", () => { draw(); });
+  new ResizeObserver(draw).observe(e.canvas.parentElement);
 
   window.MapEditor = {
-    buildMapJson, loadMap, draw, notifyChanged, renderRouteControls, renderCheckpoints, activeRoute,
+    buildMapJson, loadMap, draw, selectTile, notifyChanged, renderRouteControls, renderCheckpoints, activeRoute,
     getState: () => state
   };
   setTileDefaults();

@@ -145,6 +145,8 @@ fn asset(path: &str) -> Option<(&'static str, &'static [u8])> {
         "/map-model.js" => Some(("text/javascript", include_bytes!("../../map-model.js"))),
         "/tile-renderer.js" => Some(("text/javascript", include_bytes!("../../tile-renderer.js"))),
         "/map-editor.js" => Some(("text/javascript", include_bytes!("../../map-editor.js"))),
+        "/events.js" => Some(("text/javascript", include_bytes!("../../events.js"))),
+        "/inspector.js" => Some(("text/javascript", include_bytes!("../../inspector.js"))),
         "/editor-ui.js" => Some(("text/javascript", include_bytes!("../../editor-ui.js"))),
         _ => None,
     }

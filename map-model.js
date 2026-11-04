@@ -55,8 +55,8 @@
   }
   function parts(d) {
     const out=[];
-    (d.waves||[]).forEach((w,wi)=>(w.fragments||[]).forEach((part,fi)=>out.push({part,branch:false,path:`waves[${wi}].fragments[${fi}]`})));
-    Object.entries(d.branches||{}).forEach(([k,b])=>(b.phases||[]).forEach((part,i)=>out.push({part,branch:true,path:`branches.${k}.phases[${i}]`})));
+    (d.waves||[]).forEach((w,wi)=>(w.fragments||[]).forEach((part,fi)=>out.push({part,branch:false,waveIndex:wi,fragmentIndex:fi,path:`waves[${wi}].fragments[${fi}]`})));
+    Object.entries(d.branches||{}).forEach(([k,b])=>(b.phases||[]).forEach((part,i)=>out.push({part,branch:true,branchKey:k,fragmentIndex:i,path:`branches.${k}.phases[${i}]`})));
     return out;
   }
   const routeLibrary=(a,branch)=>a.useExtraRoute||branch?'extraRoutes':'routes';

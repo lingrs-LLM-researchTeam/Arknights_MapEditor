@@ -9,12 +9,12 @@
           <h2>明日方舟地图编辑器</h2>
           <p class="muted">独立地图编辑 · 空白格导出为 <code>tile_forbidden</code>；支持 map_jsons 导入、波次、Branch 和完整动作字段。</p>
         </div>
-        <div class="editor-button-row"><button id="newMap">新建</button><button id="openMap">打开地图 JSON</button><button id="saveMap" class="primary-button">保存 JSON</button></div>
+        <div class="editor-button-row"><button id="showWindowOptions" type="button" aria-haspopup="dialog">窗口选项</button><button id="newMap">新建</button><button id="openMap">打开地图 JSON</button><button id="saveMap" class="primary-button">保存 JSON</button></div>
       </header>
 
       <div class="map-editor-layout">
         <aside class="map-editor-controls">
-          <details open>
+          <details open data-panel="paint">
             <summary>地图尺寸与绘制</summary>
             <div class="detail-body editor-section">
               <div class="field-grid compact-grid">
@@ -47,7 +47,7 @@
             </div>
           </details>
 
-          <details open>
+          <details open data-panel="routes">
             <summary>路线与检查点</summary>
             <div class="detail-body editor-section">
               <div class="editor-button-row">
@@ -73,15 +73,17 @@
           </details>
 
 <div id="documentControls"></div>
-          <div class="editor-export-actions">
+          <div class="editor-export-actions" data-panel="export">
             <label class="field"><span>导出文件名</span><input id="editorExportName" type="text" value="level_custom.json"></label>
             <button id="editorExportButton" type="button">导出完整地图 JSON</button>
           </div>
         </aside>
 
-        <section class="map-editor-visual">
+        <div class="map-workspace">
+        <section class="map-editor-visual" data-panel="canvas">
           <div class="canvas-toolbar">
             <strong>地图与路线</strong>
+            <button id="inspectTileTool" type="button" aria-pressed="false">查看地块</button>
             <span id="editorStatus" class="muted">选择地块并在画布上绘制。</span>
           </div>
           <div class="canvas-wrap map-editor-canvas-wrap">
@@ -94,7 +96,7 @@
             <canvas id="mapEditorCanvas" width="1100" height="720" aria-label="地图与路线编辑画布"></canvas>
             <div id="mapEditorTooltip" class="tile-tooltip" hidden></div>
           </div>
-          <div class="tile-legend-block editor-tile-legend" aria-label="地图编辑器程序绘制地块图例">
+          <div data-panel="legend" class="tile-legend-block editor-tile-legend" aria-label="地图编辑器程序绘制地块图例">
             <p class="tile-legend-title">程序绘制地块</p>
             <div class="tile-legend-grid">
               <span class="tile-legend-item"><i class="tile-legend-icon tile-end"></i><span><strong>保护点</strong><small>tile_end</small></span></span>
@@ -110,19 +112,56 @@
               <span class="tile-legend-item"><i class="tile-legend-icon tile-telout"></i><span><strong>传送门出口</strong><small>tile_telout</small></span></span>
             </div>
           </div>
-          <div class="legend editor-legend">
+          <div data-panel="legend" class="legend editor-legend">
             <span><i class="swatch editor-route-start"></i>路线起点</span><span><i class="swatch editor-route-end"></i>路线终点</span>
             <span><i class="swatch editor-route-move"></i>位置检查点</span><span>路线按检查点顺序连线</span>
           </div>
         </section>
+        <section class="inspector" data-panel="inspector" aria-labelledby="inspectorHeading">
+          <header class="inspector-header">
+            <h2 id="inspectorHeading">地图检查器</h2>
+            <div class="view-switch" role="group" aria-label="查看内容">
+              <button id="tileView" type="button" aria-pressed="true">地块信息</button>
+              <button id="spawnView" type="button" aria-pressed="false">敌人路线</button>
+              <button id="eventView" type="button" aria-pressed="false">关卡事件</button>
+            </div>
+          </header>
+          <div class="inspect-controls">
+            <input id="inspectSearch" type="search" aria-label="查找" placeholder="查找坐标、地块或配置值">
+            <label class="check-field"><input id="enableFilter" type="checkbox">过滤器</label>
+            <select id="inspectFilter" aria-label="过滤条件" hidden></select>
+            <select id="eventSource" aria-label="事件来源" hidden><option value="">全部来源</option><option value="waves">主波次</option><option value="branch">Branch</option></select>
+          </div>
+          <div class="inspect-columns">
+            <div class="inspect-index">
+              <div id="inspectList" aria-label="匹配结果"></div>
+              <div class="inspect-pager">
+                <button id="inspectPrev" type="button" aria-label="上一页">‹</button>
+                <span id="inspectCount" role="status"></span>
+                <button id="inspectNext" type="button" aria-label="下一页">›</button>
+              </div>
+            </div>
+            <article id="inspectDetail" aria-label="选中项的配置"></article>
+          </div>
+        </section>
+        </div>
+        <p id="emptyWorkspace" class="empty-cell" hidden>当前窗口均已隐藏。可在顶部“窗口选项”中重新打开。</p>
       </div>
     </div>
   </main>
 <input id="mapFile" type="file" accept=".json,application/json" hidden>
+<dialog id="windowOptions" aria-labelledby="windowOptionsHeading">
+  <h2 id="windowOptionsHeading">窗口选项</h2>
+  <p class="muted">勾选要在工作区显示的面板。</p>
+  <div id="panelChoices"></div>
+  <form method="dialog"><button type="button" id="resetPanels">恢复默认</button><button class="primary-button">完成</button></form>
+</dialog>
 <dialog id="jsonDialog"><h2 id="jsonTitle"></h2><textarea id="jsonText" spellcheck="false"></textarea><p id="jsonError"></p><button id="applyJson">应用</button><button id="cancelJson">取消</button></dialog>
 <script src="schema.js"></script>
 <script src="map-model.js"></script>
 <script src="tile-renderer.js"></script>
 <script src="map-editor.js"></script>
+<script src="events.js"></script>
 <script src="editor-ui.js"></script>
+<script src="inspector.js"></script>
 </body></html>

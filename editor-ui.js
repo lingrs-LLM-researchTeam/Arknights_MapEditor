@@ -15,6 +15,10 @@ function field(parent,obj,key,choices){
  const value=obj[key];let input;
  if(choices){input=node('select',undefined,label);const values=choices.slice();if(!values.some(v=>String(v)===String(value)))values.push(value);values.forEach(v=>opt(input,v,String(v)));input.value=value;}
  else {input=node('input',undefined,label);input.type=typeof value==='boolean'?'checkbox':typeof value==='number'?'number':'text';if(input.type==='number')input.step='any';if(input.type==='checkbox')input.checked=value;else input.value=value??'';}
+ if (input.type === 'checkbox') {
+   label.classList.add('boolean-field');
+   label.prepend(input);
+ }
  input.dataset.field=key;
  input.addEventListener('change',()=>safe(()=>{let v=input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value;
   if(input.type==='number'&&(input.value===''||!Number.isFinite(v)))throw Error(key+' 需要有效数字');
@@ -27,7 +31,7 @@ function fields(parent,obj,choiceMap={},exclude=[]){const grid=node('div',undefi
 function jsonEditor(title,value,apply){$('jsonTitle').textContent=title;$('jsonText').value=JSON.stringify(value,null,2);$('jsonError').textContent='';jsonApply=apply;$('jsonDialog').showModal();}
 $('applyJson').onclick=()=>{try{const v=JSON.parse($('jsonText').value);jsonApply(v);$('jsonDialog').close();modified();render();}catch(e){$('jsonError').textContent=e.message;}};
 $('cancelJson').onclick=()=>$('jsonDialog').close();
-function section(parent,title){const d=node('details',undefined,parent);d.open=true;node('summary',title,d);const b=node('div',undefined,d);b.className='detail-body editor-section';return b;}
+function section(parent,title,panel){const d=node('details',undefined,parent);d.dataset.panel=panel;d.open=true;node('summary',title,d);const b=node('div',undefined,d);b.className='detail-body editor-section';return b;}
 function selectList(parent,title,items,index,change){const l=node('label',undefined,parent);l.className='field';node('span',title,l);const s=node('select',undefined,l);items.forEach((t,i)=>opt(s,i,t));s.value=index;s.onchange=()=>{change(Number(s.value));render();};return s;}
 function tools(parent,items,index,setIndex,factory){const row=node('div',undefined,parent);row.className='editor-button-row';
  button(row,'新增',()=>{items.push(factory());setIndex(items.length-1);modified();render();});
@@ -36,7 +40,7 @@ function tools(parent,items,index,setIndex,factory){const row=node('div',undefin
  button(row,'删除',()=>{if(!items[index]||!confirm('删除当前项及其内容？'))return;items.splice(index,1);setIndex(Math.max(0,index-1));modified();render();});
 }
 function renderSchedule(parent){
- const b=section(parent,'波次 / Branch / 动作');
+ const b=section(parent,'波次 / Branch / 动作','waves');
  const row=node('div',undefined,b);row.className='editor-button-row';
  const enable=node('label',undefined,row);const check=node('input',undefined,enable);check.type='checkbox';check.checked=doc().branches!==null;node('span','启用 Branch',enable);
  check.onchange=()=>{if(!check.checked&&Object.keys(doc().branches||{}).length&&!confirm('禁用 Branch 会删除全部分支；可用撤销恢复。')){check.checked=true;return;}doc().branches=check.checked?{}:null;scope='MAIN';modified();render();};
@@ -67,14 +71,35 @@ function renderSchedule(parent){
  const actionChoices={actionType:enums('ActionType'),randomType:enums('RandomType'),refreshType:enums('RefreshType')};
  const grid=fields(b,a,actionChoices);
  const keyInput=grid.querySelector('[data-field="key"]');
- function keyHints(){const dl=$('actionKeys');dl.replaceChildren();const type=typeof a.actionType==='number'?Object.keys(S.enums.ActionType).find(k=>S.enums.ActionType[k]===a.actionType):a.actionType;const keys=new Set(S.actionKeys[type]||[]);if(type==='SPAWN'){(doc().enemyDbRefs||[]).forEach(e=>keys.add(e.id));}keys.forEach(k=>opt(dl,k,k));}
+ function keyHints() {
+  const dl = $('actionKeys');
+  dl.replaceChildren();
+  const type = MapEvents.enumName(a.actionType);
+  const keys = new Set(S.actionKeys[type] || []);
+  for (const {part} of M.parts(doc())) {
+   for (const other of part.actions) {
+    if (MapEvents.enumName(other.actionType) === type && other.key) keys.add(other.key);
+   }
+  }
+  const refs = MapEvents.references(doc());
+  if (['SPAWN', 'DISPLAY_ENEMY_INFO', 'PREVIEW_CURSOR'].includes(type)) {
+   for (const key of refs.enemies.keys()) keys.add(key);
+  }
+  if (['ACTIVATE_PREDEFINED', 'WITHDRAW_PREDEFINED', 'TRIGGER_PREDEFINED'].includes(type)) {
+   for (const slot of refs.predefines) {
+    if (slot.alias && (type === 'ACTIVATE_PREDEFINED' || !slot.card)) keys.add(slot.alias);
+   }
+  }
+  for (const key of keys) opt(dl, key, key);
+ }
  if(keyInput)keyInput.setAttribute('list','actionKeys');keyHints();grid.querySelector('[data-field="actionType"]')?.addEventListener('change',keyHints);
  if(!Object.hasOwn(a,'useExtraRoute'))button(b,'添加 useExtraRoute（新版字段）',()=>{a.useExtraRoute=false;modified();render();});
+ button(b,'查看事件对应',()=>window.dispatchEvent(new CustomEvent('editor-inspect-action',{detail:a})));
  button(b,'编辑动作完整 JSON',()=>jsonEditor('Action（保留扩展字段）',a,v=>{if(!v||typeof v!=='object'||Array.isArray(v))throw Error('Action 必须为对象');const test=M.clone(doc());const source=scope==='MAIN'?test.waves[wi].fragments[fi]:test.branches[scope].phases[fi];source.actions[ai]=v;M.assertMap(test);f.actions[ai]=v;}));
 }
 function renderEnemies(parent){
  const hints=$('enemyKeys');hints.replaceChildren();new Set([...(S.actionKeys.SPAWN||[]),...(doc().enemyDbRefs||[]).map(r=>r.id)]).forEach(k=>opt(hints,k,k));
- const b=section(parent,'敌人数据库引用 enemyDbRefs');const refs=doc().enemyDbRefs??=[];ei=Math.min(ei,Math.max(0,refs.length-1));
+ const b=section(parent,'敌人数据库引用 enemyDbRefs','enemies');const refs=doc().enemyDbRefs??=[];ei=Math.min(ei,Math.max(0,refs.length-1));
  selectList(b,'敌人',refs.map((r,i)=>`${i} · ${r.id} · Lv${r.level}`),ei,v=>ei=v);
  tools(b,refs,ei,v=>ei=v,()=>M.clone(S.enemyReference));
  const r=refs[ei];if(!r)return;const grid=fields(b,r,{},['overwrittenData']);grid.querySelector('[data-field="id"]')?.setAttribute('list','enemyKeys');
@@ -101,12 +126,13 @@ function renderCheckpoint(){
 }
 function render(){
  const parent=$('documentControls');parent.replaceChildren();renderSchedule(parent);renderEnemies(parent);
- const meta=section(parent,'关卡设置与扩展字段');const metaGrid=node('div',undefined,meta);metaGrid.className='schema-fields';for(const key of ['levelId','mapId','bgmEvent','environmentSe','operaConfig','cameraPlugin','randomSeed'])field(metaGrid,doc(),key);
+ const meta=section(parent,'关卡设置与扩展字段','settings');const metaGrid=node('div',undefined,meta);metaGrid.className='schema-fields';for(const key of ['levelId','mapId','bgmEvent','environmentSe','operaConfig','cameraPlugin','randomSeed'])field(metaGrid,doc(),key);
  button(meta,'编辑 options',()=>jsonEditor('关卡 options',doc().options,v=>{if(!v||typeof v!=='object'||Array.isArray(v))throw Error('options 必须为对象');doc().options=v;}));
  for(const k of ['runes','optionalRunes','globalBuffs','predefines','hardPredefines','tilesDisallowToLocate','excludeCharIdList'])button(meta,'编辑 '+k,()=>jsonEditor(k,doc()[k],v=>doc()[k]=v));
  button(meta,'编辑完整地图 JSON',()=>jsonEditor('地图完整 JSON',E.buildMapJson(),v=>E.loadMap(v)));
- const val=section(parent,'格式校验');button(val,'校验当前地图',()=>{const result=M.validate(E.buildMapJson());$('validation').textContent=[...result.errors.map(x=>'错误：'+x),...result.warnings.map(x=>'提示：'+x)].join('\n')||'结构与引用校验通过';});node('pre','尚未校验',val).id='validation';
+ const val=section(parent,'格式校验','validation');button(val,'校验当前地图',()=>{const result=M.validate(E.buildMapJson());$('validation').textContent=[...result.errors.map(x=>'错误：'+x),...result.warnings.map(x=>'提示：'+x)].join('\n')||'结构与引用校验通过';});node('pre','尚未校验',val).id='validation';
  renderRoutes();E.draw();
+ window.dispatchEvent(new Event("editor-panels-rendered"));
 }
 function snapshot(){return JSON.stringify(E.buildMapJson());}
 function noteChange(){
@@ -126,7 +152,17 @@ function save(){
  if(window.ipc){window.ipc.postMessage(JSON.stringify({type:'save',name,text}));return;}
  const url=URL.createObjectURL(new Blob([text],{type:'application/json;charset=utf-8'}));const a=node('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);saved();$('editorStatus').textContent='已下载 '+name;
 }
-window.MapEditorUI={save,load,editCheckpoint(index){ci=index;renderCheckpoint();},nativeSaved(path){saved();$('editorStatus').textContent='已保存 '+path;},nativeError(message){$('editorStatus').textContent=message;},isDirty:()=>dirty};
+function showAction(location) {
+ scope = location.branch ? location.branchKey : 'MAIN';
+ wi = location.waveIndex ?? 0;
+ fi = location.fragmentIndex;
+ ai = location.actionIndex;
+ render();
+ const panel = document.querySelector('[data-panel="waves"]');
+ panel.open = true;
+ panel.querySelector('[data-field="actionType"]')?.scrollIntoView({block:'center'});
+}
+window.MapEditorUI={save,load,showAction,editCheckpoint(index){ci=index;renderCheckpoint();},nativeSaved(path){saved();$('editorStatus').textContent='已保存 '+path;},nativeError(message){$('editorStatus').textContent=message;},isDirty:()=>dirty};
 $('saveMap').onclick=()=>safe(save);$('openMap').onclick=()=>{if(dirty&&!confirm('放弃尚未保存的修改并打开另一张地图？'))return;if(window.ipc)window.ipc.postMessage('OPEN');else $('mapFile').click();};
 $('mapFile').onchange=async()=>{const file=$('mapFile').files[0];if(file)try{load(JSON.parse((await file.text()).replace(/^\uFEFF/,'')),file.name);}catch(e){$('editorStatus').textContent='打开失败：'+e.message;}$('mapFile').value='';};
 $('newMap').onclick=()=>{if(dirty&&!confirm('放弃尚未保存的修改并新建地图？'))return;load(M.create(),'level_custom.json');};

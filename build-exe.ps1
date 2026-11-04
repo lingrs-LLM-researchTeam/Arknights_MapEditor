@@ -20,7 +20,7 @@ Copy-Item -LiteralPath (Join-Path $root 'README.md') -Destination $dist -Force
 $web = Join-Path $dist 'browser'
 New-Item -ItemType Directory -Force -Path $web | Out-Null
 # Explicit runtime assets keep unrelated source files out of the release.
-$assets = @('index.html', 'styles.css', 'schema.js', 'map-model.js', 'tile-renderer.js', 'map-editor.js', 'editor-ui.js')
+$assets = @('index.html', 'styles.css', 'schema.js', 'map-model.js', 'tile-renderer.js', 'map-editor.js', 'editor-ui.js', 'events.js', 'inspector.js')
 # Remove assets shipped by the previous preview-enabled build when updating in place.
 foreach ($retired in @('engine.js', 'enemy_index.js', 'enemy-prefab-data.js', 'tile-image-assets.js', 'editor.css')) {
     $oldAsset = Join-Path $web $retired
