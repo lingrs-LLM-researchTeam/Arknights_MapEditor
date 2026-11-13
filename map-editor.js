@@ -443,7 +443,8 @@
       }
       return;
     }
-    state.dragging = true;
+    // Endpoint tools clear routeTool below; this gesture must not become paint.
+    state.dragging = !state.routeTool;
     e.canvas.setPointerCapture(event.pointerId);
     applyCanvasAction(event);
   });
