@@ -396,6 +396,7 @@
 
   e.routeSelect.addEventListener("change", () => { state.routeIndex = integer(e.routeSelect.value, 0, state.routes.length - 1, 0); renderRouteControls(); draw(); });
   e.addRoute.addEventListener("click", () => {
+    state.routes = state.document[$("routeLibrary").value || "routes"] ??= [];
     state.routes.push(makeRoute());
     state.routeIndex = state.routes.length - 1;
     renderRouteControls();
