@@ -49,6 +49,28 @@ LevelData
 
 ## 构建与验证
 
+### 模型测试
+
+安装 Node.js 22 或 24 后，在仓库根目录执行（无需 `npm install`）：
+
+~~~sh
+node --test map-model.test.js
+~~~
+
+默认测试只依赖本仓库文件和 Node.js 内置模块，使用 `tests/fixtures/maps.js` 中手写的最小地图及模型工厂生成的数据，不需要上级目录中的地图样本。测试覆盖导出往返、旧编辑器字段清理、未知字段保留、地块索引、路线引用和枚举校验。CI 在 Ubuntu / Windows、Node.js 22 / 24 上运行同一命令。
+
+这些测试验证编辑器数据模型的约定，不代表官方客户端行为、寻路算法或游戏兼容性验证。
+
+如本地已有 `schema.sources` 记录的完整样本目录，可额外运行原有的外部样本往返检查：
+
+~~~sh
+node tools/check-external-maps.js /path/to/sample-root
+~~~
+
+`sample-root` 应包含 `Map_Tools`、`Route_Calculator` 等目录；Windows 可传入带引号的本地路径。该检查不会下载样本，缺失文件或断言失败会以非零状态退出，不属于默认测试或 CI。`schema.invalidSources` 仅是 schema 生成时的记录，不作为测试通过数量。
+
+### Windows 桌面构建
+
 通过以下命令执行构建：
 
 ~~~powershell
