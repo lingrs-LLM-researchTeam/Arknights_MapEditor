@@ -22,6 +22,7 @@
     if (!w || w>256 || m.map.length>256) throw Error('地图尺寸必须在 1–256 格以内');
     if (m.map.some(row=>!Array.isArray(row)||row.length!==w||row.some(i=>!Number.isInteger(i)||i<0||i>=m.tiles.length||!m.tiles[i]))) throw Error('map 必须为矩形，且每格必须引用有效的 tiles 索引');
     for (const k of ['routes','extraRoutes','waves','enemyDbRefs']) if(d[k]!=null&&!Array.isArray(d[k])) throw Error(k+' 必须为数组');
+    for(const [i,r] of (d.enemyDbRefs||[]).entries()) if(!r||typeof r!=='object'||Array.isArray(r)) throw Error(`enemyDbRefs[${i}] 必须为敌人引用对象`);
     for(const k of ['routes','extraRoutes']) for(const r of d[k]||[]) {
       if(!r?.startPosition || !r.endPosition || (r.checkpoints!=null&&!Array.isArray(r.checkpoints))) throw Error(k+' 的路线缺少起终点或 checkpoints');
       for(const p of [r.startPosition,r.endPosition,...(r.checkpoints||[]).map(c=>c.position).filter(Boolean)]) if(!Number.isFinite(p.row)||!Number.isFinite(p.col)) throw Error('路线坐标必须为数字');
